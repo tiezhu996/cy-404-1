@@ -3,6 +3,8 @@ import { ApplicationStatus } from './enums';
 export interface JobApplication {
   id: string;
   resumeId: string;
+  resumeTitle: string;
+  archived: boolean;
   company: string;
   position: string;
   status: ApplicationStatus;

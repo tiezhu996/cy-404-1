@@ -4,7 +4,13 @@ import { createId } from '../utils/format';
 import { readStorage, storageKeys, writeStorage } from '../utils/storage';
 import { useResumeStore } from './resume';
 
-const storedApplications = readStorage<JobApplication[]>(storageKeys.applications, []);
+const storedApplications = readStorage<JobApplication[]>(storageKeys.applications, []).map(
+  (app): JobApplication => ({
+    ...app,
+    resumeTitle: app.resumeTitle ?? '',
+    archived: app.archived ?? false,
+  }),
+);
 
 function persist(applications: JobApplication[]): void {
   writeStorage(storageKeys.applications, applications);
@@ -15,6 +21,7 @@ interface ApplicationState {
   addApplication: (data: Omit<JobApplication, 'id' | 'createdAt' | 'updatedAt'>) => string;
   updateApplication: (id: string, patch: Partial<JobApplication>) => void;
   deleteApplication: (id: string) => void;
+  archiveByResumeId: (resumeId: string, resumeTitle: string) => void;
   getApplicationsByResume: (resumeId: string) => JobApplication[];
 }
 
@@ -58,6 +65,22 @@ export const useApplicationStore = create<ApplicationState>((set, get) => ({
     persist(get().applications);
   },
 
+  archiveByResumeId: (resumeId, resumeTitle) => {
+    set((state) => ({
+      applications: state.applications.map((app) =>
+        app.resumeId === resumeId
+          ? {
+              ...app,
+              resumeTitle,
+              archived: true,
+              updatedAt: new Date().toISOString(),
+            }
+          : app,
+      ),
+    }));
+    persist(get().applications);
+  },
+
   getApplicationsByResume: (resumeId) => {
     return get().applications.filter((app) => app.resumeId === resumeId);
   },
@@ -65,5 +88,9 @@ export const useApplicationStore = create<ApplicationState>((set, get) => ({
 
 export function getResumeTitleById(resumeId: string): string {
   const resume = useResumeStore.getState().resumes.find((r) => r.id === resumeId);
-  return resume?.title ?? '未知简历';
+  if (resume) {
+    return resume.title;
+  }
+  const app = useApplicationStore.getState().applications.find((a) => a.resumeId === resumeId);
+  return app?.resumeTitle ?? '已删除的简历';
 }

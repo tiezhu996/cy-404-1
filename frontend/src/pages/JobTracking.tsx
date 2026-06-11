@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Dialog, DialogPanel, DialogTitle } from '@headlessui/react';
-import { Briefcase, Plus, Edit3, Trash2, X } from 'lucide-react';
+import { Archive, Briefcase, Plus, Edit3, Trash2, X } from 'lucide-react';
 import { Button } from '../components/common/Button';
 import { EmptyState } from '../components/common/EmptyState';
 import { useApplicationStore, getResumeTitleById } from '../stores/application';
@@ -21,7 +21,7 @@ const statusColors: Record<ApplicationStatus, string> = {
   [ApplicationStatus.Ghosted]: 'bg-[var(--surface-alt)] text-[var(--muted)]',
 };
 
-type FilterStatus = ApplicationStatus | 'all';
+type FilterStatus = ApplicationStatus | 'all' | 'archived';
 const filterOptions: { value: FilterStatus; label: string }[] = [
   { value: 'all', label: '全部' },
   { value: ApplicationStatus.Applied, label: applicationStatusLabels[ApplicationStatus.Applied] },
@@ -29,25 +29,30 @@ const filterOptions: { value: FilterStatus; label: string }[] = [
   { value: ApplicationStatus.Offer, label: applicationStatusLabels[ApplicationStatus.Offer] },
   { value: ApplicationStatus.Rejected, label: applicationStatusLabels[ApplicationStatus.Rejected] },
   { value: ApplicationStatus.Ghosted, label: applicationStatusLabels[ApplicationStatus.Ghosted] },
+  { value: 'archived', label: '已归档' },
 ];
 
 interface FormState {
   resumeId: string;
+  resumeTitle: string;
   company: string;
   position: string;
   status: ApplicationStatus;
   feedback: string;
   appliedAt: string;
+  archived: boolean;
 }
 
-function getDefaultForm(resumes: { id: string }[]): FormState {
+function getDefaultForm(resumes: { id: string; title: string }[]): FormState {
   return {
     resumeId: resumes[0]?.id ?? '',
+    resumeTitle: resumes[0]?.title ?? '',
     company: '',
     position: '',
     status: ApplicationStatus.Applied,
     feedback: '',
     appliedAt: new Date().toISOString().slice(0, 10),
+    archived: false,
   };
 }
 
@@ -63,12 +68,23 @@ export function JobTracking() {
   const [editingApp, setEditingApp] = useState<JobApplication | null>(null);
   const [form, setForm] = useState<FormState>(getDefaultForm(resumes));
 
-  const filteredApplications =
-    filter === 'all'
-      ? [...applications].sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime())
-      : applications
-          .filter((app) => app.status === filter)
-          .sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime());
+  const filteredApplications = (() => {
+    let list = [...applications];
+    if (filter === 'archived') {
+      list = list.filter((app) => app.archived);
+    } else if (filter !== 'all') {
+      list = list.filter((app) => app.status === filter && !app.archived);
+    }
+    return list.sort((a, b) => new Date(b.appliedAt).getTime() - new Date(a.appliedAt).getTime());
+  })();
+
+  const archivedCount = applications.filter((a) => a.archived).length;
+
+  const getFilterCount = (value: FilterStatus): number => {
+    if (value === 'all') return applications.length;
+    if (value === 'archived') return archivedCount;
+    return applications.filter((a) => a.status === value && !a.archived).length;
+  };
 
   const handleOpenAdd = () => {
     setEditingApp(null);
@@ -80,11 +96,13 @@ export function JobTracking() {
     setEditingApp(app);
     setForm({
       resumeId: app.resumeId,
+      resumeTitle: app.resumeTitle,
       company: app.company,
       position: app.position,
       status: app.status,
       feedback: app.feedback,
       appliedAt: app.appliedAt.slice(0, 10),
+      archived: app.archived,
     });
     setIsModalOpen(true);
   };
@@ -95,15 +113,19 @@ export function JobTracking() {
     }
 
     const appliedAtISO = new Date(form.appliedAt).toISOString();
+    const currentResume = resumes.find((r) => r.id === form.resumeId);
+    const resumeTitle = currentResume?.title ?? form.resumeTitle;
 
     if (editingApp) {
       updateApplication(editingApp.id, {
         ...form,
+        resumeTitle,
         appliedAt: appliedAtISO,
       });
     } else {
       addApplication({
         ...form,
+        resumeTitle,
         appliedAt: appliedAtISO,
       });
     }
@@ -117,7 +139,16 @@ export function JobTracking() {
   };
 
   const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [key]: value };
+      if (key === 'resumeId') {
+        const picked = resumes.find((r) => r.id === (value as string));
+        if (picked) {
+          next.resumeTitle = picked.title;
+        }
+      }
+      return next;
+    });
   };
 
   return (
@@ -147,11 +178,7 @@ export function JobTracking() {
             }`}
           >
             {option.label}
-            <span className="text-xs opacity-70">
-              {option.value === 'all'
-                ? applications.length
-                : applications.filter((a) => a.status === option.value).length}
-            </span>
+            <span className="text-xs opacity-70">{getFilterCount(option.value)}</span>
           </button>
         ))}
       </div>
@@ -179,6 +206,11 @@ export function JobTracking() {
                   <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusColors[app.status]}`}>
                     {applicationStatusLabels[app.status]}
                   </span>
+                  {app.archived && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[var(--surface-alt)] px-2 py-0.5 text-xs font-semibold text-[var(--muted)]">
+                      <Archive size={12} aria-hidden /> 已归档
+                    </span>
+                  )}
                 </div>
                 <p className="mt-1 text-sm text-[var(--muted)]">
                   {app.position} · {getResumeTitleById(app.resumeId)}
@@ -257,17 +289,26 @@ export function JobTracking() {
               <div className="grid gap-4 md:grid-cols-2">
                 <label className="space-y-1 text-sm font-medium">
                   <span>关联简历</span>
-                  <select
-                    className={inputClass}
-                    value={form.resumeId}
-                    onChange={(e) => updateField('resumeId', e.target.value)}
-                  >
-                    {resumes.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.title}
-                      </option>
-                    ))}
-                  </select>
+                  {form.archived ? (
+                    <input
+                      className={`${inputClass} opacity-60`}
+                      value={form.resumeTitle}
+                      disabled
+                      readOnly
+                    />
+                  ) : (
+                    <select
+                      className={inputClass}
+                      value={form.resumeId}
+                      onChange={(e) => updateField('resumeId', e.target.value)}
+                    >
+                      {resumes.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.title}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </label>
                 <label className="space-y-1 text-sm font-medium">
                   <span>投递日期</span>

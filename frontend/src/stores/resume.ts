@@ -3,6 +3,7 @@ import { EducationLevel, SkillCategory, SkillLevel } from '../types/enums';
 import { Resume, ResumeBasicInfo, ResumeSection, ResumeSectionType } from '../types/resume';
 import { createId } from '../utils/format';
 import { readStorage, storageKeys, writeStorage } from '../utils/storage';
+import { useApplicationStore } from './application';
 import { useTemplateStore } from './template';
 
 const defaultSections: ResumeSection[] = [
@@ -152,6 +153,10 @@ export const useResumeStore = create<ResumeState>((set, get) => ({
     return clone.id;
   },
   deleteResume: (resumeId) => {
+    const resume = get().resumes.find((r) => r.id === resumeId);
+    if (resume) {
+      useApplicationStore.getState().archiveByResumeId(resumeId, resume.title);
+    }
     set((state) => {
       const nextResumes = state.resumes.filter((resume) => resume.id !== resumeId);
       const activeResumeId =
