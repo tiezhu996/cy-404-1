@@ -1,3 +1,4 @@
+import { JobApplication } from '../types/application';
 import { Profile } from '../types/profile';
 import { Resume } from '../types/resume';
 import { readStorage, storageKeys, writeStorage } from '../utils/storage';
@@ -9,6 +10,7 @@ export interface WorkspaceSnapshot {
   profile: Profile;
   selectedTemplateId: string;
   theme: 'light' | 'dark';
+  applications: JobApplication[];
 }
 
 export function readWorkspaceSnapshot(fallbackProfile: Profile): WorkspaceSnapshot {
@@ -19,6 +21,7 @@ export function readWorkspaceSnapshot(fallbackProfile: Profile): WorkspaceSnapsh
     profile: readStorage<Profile>(storageKeys.profile, fallbackProfile),
     selectedTemplateId: readStorage<string>(storageKeys.template, 'atelier'),
     theme: readStorage<'light' | 'dark'>(storageKeys.theme, 'light'),
+    applications: readStorage<JobApplication[]>(storageKeys.applications, []),
   };
 }
 
@@ -28,5 +31,6 @@ export function writeWorkspaceSnapshot(snapshot: WorkspaceSnapshot): void {
   writeStorage(storageKeys.profile, snapshot.profile);
   writeStorage(storageKeys.template, snapshot.selectedTemplateId);
   writeStorage(storageKeys.theme, snapshot.theme);
+  writeStorage(storageKeys.applications, snapshot.applications);
 }
 

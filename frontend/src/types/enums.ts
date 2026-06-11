@@ -44,3 +44,19 @@ export const skillCategoryLabels: Record<SkillCategory, string> = {
   [SkillCategory.Soft]: '软技能',
 };
 
+export enum ApplicationStatus {
+  Applied = 'applied',
+  Interviewing = 'interviewing',
+  Offer = 'offer',
+  Rejected = 'rejected',
+  Ghosted = 'ghosted',
+}
+
+export const applicationStatusLabels: Record<ApplicationStatus, string> = {
+  [ApplicationStatus.Applied]: '已投递',
+  [ApplicationStatus.Interviewing]: '面试中',
+  [ApplicationStatus.Offer]: '已 Offer',
+  [ApplicationStatus.Rejected]: '已拒绝',
+  [ApplicationStatus.Ghosted]: '无回音',
+};
+
