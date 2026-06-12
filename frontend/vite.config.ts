@@ -11,5 +11,12 @@ export default defineConfig({
     port: 28310,
     strictPort: true,
   },
+  test: {
+    globals: true,
+    environment: 'node',
+    include: ['src/**/*.{test,spec}.{ts,tsx}'],
+    exclude: ['node_modules', 'dist'],
+    setupFiles: [],
+  },
 });
 
